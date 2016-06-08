@@ -1,0 +1,11 @@
+use_frameworks!
+
+target 'WebEditor_Example' do
+  pod 'WebEditor', :path => '../'
+
+  target 'WebEditor_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end
