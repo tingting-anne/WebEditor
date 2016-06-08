@@ -22,7 +22,7 @@ pod "WebEditor"
 
 ## Author
 
-liutingting, liutingting_fly@163.com
+liutingting, liutingting_fly#163.com
 
 ## License
 
