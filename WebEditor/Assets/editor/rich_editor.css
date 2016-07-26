@@ -1,0 +1,150 @@
+body,ul,ol,li,p,h1,h2,h3,h4,h5,h6,form,fieldset,table,td,img,div,dl,dt,dd,input,blockquote{margin:0;padding:0;}
+
+* {outline: 0px solid transparent;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    -webkit-touch-callout: none;
+}
+
+html {
+    padding:0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #ffffff;
+    font-size: 16px;
+    font-weight: lighter;
+    margin: 15px 15px 15px 15px;
+    overflow-y: auto;
+    word-wrap: break-word;
+}
+
+font {
+    color: rgb(34,34,34) !important;
+}
+
+a font {
+    color: #6c4b9f !important;
+}
+
+a {
+    text-decoration: none;
+    color: #6c4b9f;
+}
+
+.editor_field span, .editor_field p {
+    color: rgb(34,34,34) !important;
+}
+
+.editor_field p {
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+img {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    opacity:1;
+}
+
+video {
+    display: block;
+    margin: 0 auto;
+    min-width: 100%!important;
+    width: 100%!important;
+    min-height: 215px!important;
+}
+
+.table-content-wrapper {
+    margin: 0px 15px 0px 15px;
+}
+
+table {
+    margin-top: 15px;
+    margin-bottom: 15px;
+    border-collapse: collapse;
+    overflow: visible;
+    table-layout:fixed;
+    border-spacing:0;
+    display: table;
+}
+
+table, td, th
+{
+    font-size:11px;
+    padding:2px;
+    border:1px solid rgb(230,230,230);
+    text-align:left;
+    vertical-align:top;
+    width:100%;
+    height:100%;
+}
+
+table.nativetable {
+    font-size: 12px;
+}
+
+ul {
+    list-style : outside disc;
+    list-style-position: inside;
+    vertical-align: baseline;
+}
+
+ol {
+    list-style : outside decimal;
+    list-style-position: inside;
+    vertical-align: baseline;
+}
+
+#field_quote_content {
+    padding-left: 10px;
+    color: rgb(102,102,102);
+    font-size: 14px;
+    line-height: 18px;
+    border-left: 5px solid rgb(240,240,240);
+    -webkit-user-modify: read-only;
+    margin-bottom: 15px;
+    overflow: hidden;
+    max-height: 36px;
+}
+
+blockquote {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+div.editor_field {
+    box-sizing: border-box;
+    clear: both;
+    overflow: hidden;
+    line-height: 22px;
+    font-size: 16px;
+    text-align: justify;
+}
+
+.placeholder[placeholder]:after {
+    content: attr(placeholder);
+    position: absolute;
+    top: 15px;
+    line-height: 18px;
+    color: #cccccc;
+}
+
+.editor_field:focus {
+    outline: 0px solid transparent;
+}
+
+#separatorDiv {
+    -webkit-user-select: none;
+    max-width: 100%;
+    height: 1px;
+    background-color: rgb(227,227,227);
+    margin: 0px;
+}
+
+

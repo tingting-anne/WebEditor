@@ -21,10 +21,10 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '8.0'
 
   s.source_files = 'WebEditor/Classes/*'
-  
-  s.resource_bundles = {
-    'WebEditor' => ['WebEditor/Assets/*.png']
-  }
+  s.resources = [
+    'WebEditor/Assets/icons/*',
+    'WebEditor/Assets/editor/*'
+  ]
+  s.framework = 'SnapKit'
   s.dependency 'SnapKit'
-
 end
