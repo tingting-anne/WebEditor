@@ -5,11 +5,12 @@
 [![License](https://img.shields.io/cocoapods/l/WebEditor.svg?style=flat)](http://cocoapods.org/pods/WebEditor)
 [![Platform](https://img.shields.io/cocoapods/p/WebEditor.svg?style=flat)](http://cocoapods.org/pods/WebEditor)
 
+A simple rich editor based on webView and witten in Swift.
+![image](https://github.com/tingting-anne/WebEditor/raw/master/Example/ScreenShot/thumb_IMG_1004_1024.jpg)
+
 ## Example
 
 To run the example project, clone the repo, and run `pod install` from the Example directory first.
-
-## Requirements
 
 ## Installation
 
@@ -19,11 +20,3 @@ it, simply add the following line to your Podfile:
 ```ruby
 pod "WebEditor"
 ```
-
-## Author
-
-liutingting, liutingting_fly#163.com
-
-## License
-
-WebEditor is available under the MIT license. See the LICENSE file for more info.
