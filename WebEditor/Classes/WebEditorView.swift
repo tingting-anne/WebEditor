@@ -10,8 +10,13 @@ import Foundation
 import SnapKit
 
 public class WebEditorView: UIView {
+    /// placeholder
     public var placeholderBody = "正文"
+    
+    /// 初始打开时编辑器是否 focus
     public var loadWithFocus = true
+
+    /// 编辑器 focus 状态变化回调，focus 表示当前是否处于 focus 状态
     public var focusStateCallback: ((focus: Bool) -> Void)?
     public private(set) var webView: UIWebView
     
@@ -30,8 +35,6 @@ public class WebEditorView: UIView {
     }
     
     private func setup() {
-        self.backgroundColor = UIColor.redColor()
-        
         webView.frame = self.bounds
         webView.delegate = self
         webView.keyboardDisplayRequiresUserAction = false
@@ -58,8 +61,16 @@ public class WebEditorView: UIView {
         addGestureRecognizer(tapGestureRecognizer)
     }
 
+    /**
+        加载编辑器
+     
+        - parameter quote: 引用数据
+        - parameter body: 正文数据
+    */
     public func loadWebViewData(quote: String?, body: String?) {
-        let path = NSBundle.mainBundle().pathForResource("rich_editor", ofType: "html", inDirectory: "EditorResource")!
+        guard let path = NSBundle(forClass: WebEditorView.self).pathForResource("rich_editor", ofType: "html") else {
+            return
+        }
         let templateURL = NSURL(fileURLWithPath: path)
         let htmlTemp = try! String(contentsOfURL: templateURL, encoding: NSUTF8StringEncoding)
         let data = String(format: htmlTemp, quote ?? "", body ?? "")
@@ -68,15 +79,12 @@ public class WebEditorView: UIView {
 }
 
 // MARK: - UIWebViewDelegate
+
 extension WebEditorView: UIWebViewDelegate {
     public func webView(webView: UIWebView, shouldStartLoadWithRequest request: NSURLRequest, navigationType: UIWebViewNavigationType) -> Bool {
         
-        // Handle pre-defined editor actions
         let callbackPrefix = "re-callback://"
         if request.URL?.absoluteString.hasPrefix(callbackPrefix) == true {
-            
-            // When we get a callback, we need to fetch the command queue to run the commands
-            // It comes in as a JSON array of commands that we need to parse
             let commands = runJS("RE.getCommandQueue();")
             if let data = (commands as NSString).dataUsingEncoding(NSUTF8StringEncoding) {
                 
@@ -153,7 +161,7 @@ extension WebEditorView {
     
     public func getBodyHtmlLength() -> Int {
         let ret = runJS("RE.getBodyHtmlLength();")
-        return Int(ret)!
+        return Int(ret) ?? 0
     }
     
     func handleViewTapped(position: CGFloat) {
@@ -287,12 +295,27 @@ extension WebEditorView {
         runJS("RE.insertLink('\(escape(href))', '\(escape(title))');")
     }
     
-    func insertImage(url: String, classStr: String, alt: String) {
+    /**
+        插入图片
+        
+        - parameter url: 图片地址， 可以是本地或者远端的地址。
+        - parameter classStr: img 标签中的 class
+        - parameter alt: img 标签中的 alt
+    */
+    public func insertImage(url: String, classStr: String, alt: String) {
         runJS("RE.prepareInsert();")
         runJS("RE.insertImage('\(escape(url))', '\(escape(classStr))', '\(escape(alt))');")
     }
     
-    func insertLocalImage(localUrl: String, remoteUrl: String, classStr: String, alt: String) {
+    /**
+        可以插入本地图片，避免去下载。在 getBody 时，会把 img 标签的 src 替换成 remoteUrl。可用于插入表情等客户端和服务端有固定链接对应的情况。
+     
+        - parameter localUrl: 本地地址
+        - parameter remoteUrl: 远端地址
+        - parameter classStr: img 标签中的 class
+        - parameter alt: img 标签中的 alt
+    */
+    public func insertLocalImage(localUrl: String, remoteUrl: String, classStr: String, alt: String) {
         runJS("RE.prepareInsert();")
         runJS("RE.insertLocalImage('\(escape(localUrl))', '\(escape(remoteUrl))','\(escape(classStr))', '\(escape(alt))');")
     }

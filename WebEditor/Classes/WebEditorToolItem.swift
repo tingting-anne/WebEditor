@@ -69,27 +69,17 @@ public enum WebEditorToolOptions {
         let bundle = NSBundle(forClass: WebEditorView.self)
         return UIImage(named: name, inBundle: bundle, compatibleWithTraitCollection: nil)
     }
-    
-    public var title: String? {
-        return nil
-    }
 }
 
-public class WebEditorToolItem: UIBarButtonItem {
-    private var itemAction: (() -> Void)?
+public class WebEditorToolItem: UIButton {
     
-    public convenience init(image: UIImage?, itemAction: (() -> Void)?) {
-        self.init(image: image, style: .Plain, target: nil, action: nil)
-        target = self
-        action = #selector(WebEditorToolItem.barTapped)
-        self.itemAction = itemAction
-    }
+    public var itemSize = CGSizeMake(22, 22)
+    public var itemAction: (() -> Void)?
     
-    public convenience init(title: String?, itemAction: (() -> Void)?) {
-        self.init(title: title, style: .Plain, target: nil, action: nil)
-        target = self
-        action = #selector(WebEditorToolItem.barTapped)
-        self.itemAction = itemAction
+    public convenience init(image: UIImage?) {
+        self.init()
+        setImage(image, forState: .Normal)
+        addTarget(self, action: #selector(WebEditorToolItem.barTapped), forControlEvents: .TouchUpInside)
     }
     
     func barTapped() {

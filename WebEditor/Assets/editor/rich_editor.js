@@ -136,11 +136,11 @@ RE.setHtml = function(contents) {
 };
 
 RE.getBodyHtml = function() {
-    var images = document.querySelectorAll("img.DXYEditorNeedReplaceRemoteURL"), index;
+    var images = document.querySelectorAll("img.WebEditorNeedReplaceRemoteURL"), index;
     for (index = 0; index < images.length; ++index) {
         var image = images[index];
         image.src = image.getAttribute("remoteSrc");
-        image.classList.remove("DXYEditorNeedReplaceRemoteURL");
+        image.classList.remove("WebEditorNeedReplaceRemoteURL");
         image.removeAttribute("remoteSrc");
     }
     var body = RE.editor.innerHTML;
@@ -298,7 +298,7 @@ RE.insertLocalImage = function(localUrl, remoteUrl, classStr, alt) {
     var img = document.createElement('img');
     img.setAttribute("src", localUrl);
     img.setAttribute("remoteSrc", remoteUrl);
-    img.setAttribute("class", classStr + " DXYEditorNeedReplaceRemoteURL");
+    img.setAttribute("class", classStr + " WebEditorNeedReplaceRemoteURL");
     img.setAttribute("alt", alt);
     img.onload = RE.updateHeight;
 
@@ -318,6 +318,7 @@ RE.insertHTML = function(html) {
 RE.insertLink = function(url, title) {
     RE.restorerange();
     var sel = document.getSelection();
+    
     if (sel.toString().length != 0) {
         if (sel.rangeCount) {
 
@@ -330,6 +331,8 @@ RE.insertLink = function(url, title) {
             sel.removeAllRanges();
             sel.addRange(range);
         }
+    }else {
+        document.execCommand("insertHTML",false,"<a href='"+url+"'>"+title+"</a>");
     }
     RE.callback("input");
 };
