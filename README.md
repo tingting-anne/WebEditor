@@ -5,8 +5,8 @@
 [![License](https://img.shields.io/cocoapods/l/WebEditor.svg?style=flat)](http://cocoapods.org/pods/WebEditor)
 [![Platform](https://img.shields.io/cocoapods/p/WebEditor.svg?style=flat)](http://cocoapods.org/pods/WebEditor)
 
-A simple rich editor based on webView and witten in Swift.
-![image](https://github.com/tingting-anne/WebEditor/raw/master/Example/ScreenShot/thumb_IMG_1004_1024.jpg = 332*591)
+A simple rich editor based on webView and witten in Swift. 
+<img src="https://github.com/tingting-anne/WebEditor/raw/master/Example/ScreenShot/thumb_IMG_1004_1024.jpg" alt="test" width="332" height="665">
 
 ## Example
 
