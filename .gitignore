@@ -18,6 +18,8 @@ profile
 DerivedData
 *.hmap
 *.ipa
+*.xcworkspace
+!default.xcworkspace
 
 # Bundler
 .bundle
@@ -31,3 +33,7 @@ Carthage
 # `pod install` in .travis.yml
 #
 # Pods/
+
+# CocoaPods
+Example/Pods/
+Example/Tests/

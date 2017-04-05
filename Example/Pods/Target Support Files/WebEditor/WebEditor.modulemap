@@ -1,6 +1,0 @@
-framework module WebEditor {
-  umbrella header "WebEditor-umbrella.h"
-
-  export *
-  module * { export * }
-}

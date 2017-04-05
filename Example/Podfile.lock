@@ -1,5 +1,5 @@
 PODS:
-  - SnapKit (0.21.1)
+  - SnapKit (3.2.0)
   - WebEditor (0.1.0):
     - SnapKit
 
@@ -8,12 +8,12 @@ DEPENDENCIES:
 
 EXTERNAL SOURCES:
   WebEditor:
-    :path: ../
+    :path: "../"
 
 SPEC CHECKSUMS:
-  SnapKit: bbad04cb016c7cead63965f16b00c09318d271ee
+  SnapKit: 1ca44df72cfa543218d177cb8aab029d10d86ea7
   WebEditor: 53881062af5c74f480f3b13d8d607b1654c97e3b
 
 PODFILE CHECKSUM: daf19b9189d69e4d03acb366c9b887b51539c09b
 
-COCOAPODS: 1.0.0
+COCOAPODS: 1.2.0
