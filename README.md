@@ -2,7 +2,9 @@
 
 A simple rich editor based on webView and witten in Swift.     
 
-<img src="https://github.com/tingting-anne/WebEditor/raw/master/Example/ScreenShot/thumb_IMG_1004_1024.jpg" alt="test" width="332" height="665">
+<img src="https://github.com/tingting-anne/WebEditor/raw/master/Example/ScreenShot/thumb_IMG_new.png" alt="test" width="375" height="667">
+<img src="https://github.com/tingting-anne/WebEditor/raw/master/Example/ScreenShot/thumb_IMG_edit.png" alt="test" width="375" height="667">
+<img src="https://github.com/tingting-anne/WebEditor/raw/master/Example/ScreenShot/thumb_IMG_reply.png" alt="test" width="375" height="667">
 
 ## Example
 

@@ -11,8 +11,8 @@ import SnapKit
 
 public class WebEditorView: UIView {
     /// placeholder
-    var placeholderTitle = "讨论标题"
-    var placeholderBody = "讨论正文"
+    var placeholderTitle = "标题"
+    var placeholderBody = "正文"
     
     public private(set) var webView: UIWebView
     fileprivate var showTitle = true
