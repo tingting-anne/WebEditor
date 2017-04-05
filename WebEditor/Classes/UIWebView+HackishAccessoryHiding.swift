@@ -9,7 +9,7 @@
 import Foundation
 
 let hackishFixClassName = "UIWebBrowserViewMinusAccessoryView"
-var hackishFixClass: AnyClass? = nil
+var hackishFixClass: AnyClass?
 
 extension UIWebView {
     private struct AssociatedKeys {
@@ -23,7 +23,7 @@ extension UIWebView {
     func setHackinputAccessoryView(view: UIView?) {
         objc_setAssociatedObject(self, &AssociatedKeys.hackInputAccessoryViewName, view, .OBJC_ASSOCIATION_RETAIN)
         if let browserView = hackishlyFoundBrowserView() {
-            ensureHackishSubclassExistsOfBrowserViewClass(browserView.dynamicType)
+            ensureHackishSubclassExistsOfBrowserViewClass(browserViewClass: type(of: browserView))
             object_setClass(browserView, hackishFixClass)
             browserView.reloadInputViews()
         }
@@ -31,21 +31,21 @@ extension UIWebView {
 
     
     func hackishlyFoundBrowserView() -> UIView? {
-        var browserView: UIView? = nil
+        var browserView: UIView?
         
-        for subview in self.scrollView.subviews {
-            if NSStringFromClass(subview.dynamicType).hasPrefix("UIWebBrowserView") {
-                browserView = subview;
-                break;
+        for subview in scrollView.subviews {
+            if NSStringFromClass(type(of: subview)).hasPrefix("UIWebBrowserView") {
+                browserView = subview
+                break
             }
         }
-        return browserView;
+        return browserView
     }
     
     func methodReturningCustomInputAccessoryView() -> UIView? {
         var view: UIView? = self
-        while view != nil && !view!.isKindOfClass(UIWebView.self) {
-            view = view!.superview
+        while let viewTemp = view, !viewTemp.isKind(of: UIWebView.self) {
+            view = viewTemp.superview
         }
         
         var customInputAccessoryView: UIView? = nil
@@ -57,9 +57,9 @@ extension UIWebView {
     
     func ensureHackishSubclassExistsOfBrowserViewClass(browserViewClass: AnyClass) {
         if hackishFixClass == nil {
-            let newClass = objc_allocateClassPair(browserViewClass, hackishFixClassName, 0)
-            let nilImp = self.methodForSelector("methodReturningCustomInputAccessoryView")
-            class_addMethod(newClass, "inputAccessoryView", nilImp, "@@:")
+            let newClass: AnyClass = objc_allocateClassPair(browserViewClass, hackishFixClassName, 0)
+            let nilImp = method(for: #selector(UIWebView.methodReturningCustomInputAccessoryView))
+            class_addMethod(newClass, #selector(getter: UIResponder.inputAccessoryView), nilImp, "@@:")
             objc_registerClassPair(newClass)
             hackishFixClass = newClass
         }

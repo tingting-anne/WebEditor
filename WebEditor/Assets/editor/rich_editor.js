@@ -1,114 +1,50 @@
+/**
+ * Copyright (C) 2015 Wasabeef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 "use strict";
 
 var RE = {};
 
 window.onload = function() {
     RE.callback("ready");
-
-    document.execCommand('insertBrOnReturn', false, false);
+    
+    document.execCommand('insertBrOnReturn', false, true);
     document.execCommand('defaultParagraphSeparator', false, this.defaultParagraphSeparator);
     document.execCommand('styleWithCSS', false, false);
 };
 
+RE.title = document.getElementById('field_title');
 RE.editor = document.getElementById('field_content');
-RE.quote = document.getElementById('field_quote_content');
-RE.contentHeight = 244;
 
-RE.getCaretYPosition = function() {
-    var sel = window.getSelection();
-    // Next line is comented to prevent deselecting selection. It looks like work but if there are any issues will appear then uconmment it as well as code above.
-    //sel.collapseToStart();
-    var range = sel.getRangeAt(0);
-    var span = document.createElement('span');// something happening here preventing selection of elements
-    range.collapse(false);
-    range.insertNode(span);
-    var topPosition = span.offsetTop;
-    span.parentNode.removeChild(span);
-    return topPosition;
-}
-
-RE.calculateEditorHeightWithCaretPosition = function() {
-
-    var c = RE.getCaretYPosition(RE.editor);
-    RE.callback("scrollTo="+c);
-
-    //直接js移动有问题，开始移动正常，后来移动了但是再获取pageYOffset有问题，而且移动有时候不成功，不知道为什么。。。
-//    var padding = 15;
-//    var lineHeight = 24;
-//    var offsetY = window.document.body.scrollTop;
-//    var height = RE.contentHeight;
-//    var newPos = window.pageYOffset;
-//
-//   // alert("c="+ c +"  Y=" + offsetY + "  height=" + height + "  newPos="+ newPos)
-//
-//    if (c < offsetY) {
-//        newPos = c;
-//    } else if (c > (offsetY + height - padding - lineHeight)) {
-//        newPos = c - height + padding + lineHeight + lineHeight;
-//    }
-//  window.scrollTo(0, newPos);
-}
-
-// Not universally supported, but seems to work in iOS 7 and 8
-document.addEventListener("selectionchange", function() {
-                          RE.backuprange();
-                          });
-
-//looks specifically for a Range selection and not a Caret selection
-RE.rangeSelectionExists = function() {
-    var sel = document.getSelection();
-    if (sel && sel.type == "Range") {
-        return true;
-    }
-    return false;
-};
-
-RE.rangeOrCaretSelectionExists = function() {
-    var sel = document.getSelection();
-    if (sel && (sel.type == "Range" || sel.type == "Caret")) {
-        return true;
-    }
-    return false;
-};
-
-RE.editor.addEventListener("input", function() {
-                           RE.updatePlaceholder();
-                           RE.backuprange();
-                           RE.calculateEditorHeightWithCaretPosition();
-                           RE.callback("input");
-                           });
-
-RE.editor.addEventListener("focus", function() {
-                           RE.backuprange();
-                           RE.calculateEditorHeightWithCaretPosition();
-                           RE.callback("focus");
-                           });
-
-RE.editor.addEventListener("blur", function() {
-                           RE.callback("blur");
-                           });
-
-RE.editor.addEventListener("touchend", function(e) {
-                           RE.handleTapEvent(e);
-                           });
-
-RE.customAction = function(action) {
-    RE.callback("action/" + action);
-};
-
-RE.updateHeight = function() {
-    RE.callback("updateHeight");
-}
-
+/*
+    事件派发
+ */
 RE.callbackQueue = [];
 RE.runCallbackQueue = function() {
     if (RE.callbackQueue.length === 0) {
         return;
     }
-
+    
     setTimeout(function() {
                window.location.href = "re-callback://";
                }, 0);
+};
+
+RE.callback = function(method) {
+    RE.callbackQueue.push(method);
+    RE.runCallbackQueue();
 };
 
 RE.getCommandQueue = function() {
@@ -117,25 +53,308 @@ RE.getCommandQueue = function() {
     return commands;
 };
 
-RE.callback = function(method) {
-    RE.callbackQueue.push(method);
-    RE.runCallbackQueue();
+RE.customAction = function(action) {
+    RE.callback("action/" + action);
 };
 
-RE.setHtml = function(contents) {
-    var tempWrapper = document.createElement('div');
-    tempWrapper.innerHTML = contents;
-    var images = tempWrapper.querySelectorAll("img");
 
-    for (var i = 0; i < images.length; i++) {
-        images[i].onload = RE.updateHeight;
+/*
+    监听事件
+ */
+document.addEventListener("selectionchange", function() {
+                          RE.backuprange();
+                          });
+
+//标题
+RE.title.addEventListener("keydown", function(e) {
+                          RE.handleTitleKeyDownEvent(e);
+                          });
+
+RE.title.addEventListener("input", function() {
+                          RE.updateTitlePlaceholder();
+                          RE.backuprange();
+                          RE.callback("inputTitle");
+                          });
+
+RE.title.addEventListener("focus", function() {
+                           RE.callback("focusTitle");
+                           RE.backuprange();
+                           });
+
+RE.title.addEventListener("blur", function() {
+                           RE.callback("blurFocusTitle");
+                           });
+
+//正文
+RE.editor.addEventListener("input", function() {
+                           RE.updateContentPlaceholder();
+                           RE.backuprange();
+                           RE.callback("inputContent");
+                           });
+
+RE.editor.addEventListener("focus", function() {
+                           RE.backuprange();
+                           });
+
+RE.editor.addEventListener("touchend", function(e) {
+                           RE.handleTapEvent(e);
+                           });
+
+/*
+    内容变化时计算滚动位置
+ */
+RE.getRelativeCaretYPosition = function() {
+    var y = 0;
+    var height = 20;
+    var focus = false
+    if (window.getSelection().rangeCount <= 0) {//没有focus时，getSelection无效
+        RE.focusContent();
+        focus = true;
     }
 
-    RE.editor.innerHTML = tempWrapper.innerHTML;
-    RE.updatePlaceholder();
+    var sel = window.getSelection();
+    if (sel.rangeCount) {
+        var range = sel.getRangeAt(0);
+        var insetSpan = false;
+        var span = document.createElement('span');
+        var needsWorkAround = (range.startOffset == 0);
+        /* Removing fixes bug when node name other than 'div' */
+        // && range.startContainer.nodeName.toLowerCase() == 'div');
+        
+        if (needsWorkAround) {//换行时，range为 nil，这里在新行头加上临时span的方式计算光标位置
+            //直接使用下面这句时，只能计算编辑器头部没有编辑转化、引用等情况
+            //y = range.startContainer.offsetTop - window.pageYOffset;
+        
+            range.collapse(false);
+            range.insertNode(span);
+            insetSpan = true;
+            
+            //在p标签后输入换行，默认插入是<p><br/></p>, 换行输入时，编辑器不知道为何光标总是在下方，上层计算后会上移，但是看起来会有一次跳动，这里处理下
+            if(range.startContainer.nodeName.toLowerCase() == 'p') {
+                var preNode = span.parentNode.previousSibling;
+                var parentNode = preNode.parentNode;
+                parentNode.removeChild(span.parentNode);
+                //alert("needsWorkAround p");
+                var newNode = document.createElement('br');
+                parentNode.appendChild(newNode);
+                parentNode.appendChild(span);
+                RE.backSpaceLocate(span);
+                RE.focusContent();
+            }
+        }
+    
+        if (range.getClientRects) {
+            var rects=range.getClientRects();
+            if (rects.length > 0) {
+                y = rects[0].top;
+                height = rects[0].height;
+                if(height <= 0) {   //兼容
+                    height = 20;
+                }
+                //alert("y" + y + "h" + height);
+            }
+        }
+        
+        if(y <= 0) {
+            range.collapse(false);
+            range.insertNode(span);
+            insetSpan = true;
+            
+            var temp = span.parentNode.getBoundingClientRect();
+            y = temp.top;
+            height = temp.height;
+            //alert("lal: y=" + temp.top + ",h=" + temp.height);
+        }
+        
+        if(insetSpan) {
+            span.parentNode.removeChild(span);
+        }
+    }
+    
+    if(focus) {
+        RE.blurFocus();
+    }
+
+    return  y + "+" + height;
 };
 
-RE.getBodyHtml = function() {
+/*
+    光标处理等基础函数
+ */
+RE.updateHeight = function() {
+    RE.callback("updateHeight");
+}
+
+RE.checkTitleEmpty = function() {
+    var html = RE.title.innerHTML;
+    var ret = false;
+    if (html.length == 0 || html == "<br>") {
+        ret = true;
+    }
+    return ret;
+};
+
+RE.checkContentEmpty = function() {
+    var html = RE.editor.innerHTML;
+    var ret = false;
+    if (html.length == 0 || html == "<br>") {
+        ret = true;
+    }
+    return ret;
+};
+
+RE.insertHTML = function(html) {
+    RE.restorerange();
+    document.execCommand('insertHTML', false, html);
+};
+
+RE.prepareInsert = function() {
+    RE.backuprange();
+};
+
+RE.backuprange = function() {
+    var selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        var range = selection.getRangeAt(0);
+        RE.currentSelection = {
+            "startContainer": range.startContainer,
+            "startOffset": range.startOffset,
+            "endContainer": range.endContainer,
+            "endOffset": range.endOffset
+        };
+    }
+};
+
+RE.restorerange = function() {
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    var range = document.createRange();
+    range.setStart(RE.currentSelection.startContainer, RE.currentSelection.startOffset);
+    range.setEnd(RE.currentSelection.endContainer, RE.currentSelection.endOffset);
+    selection.addRange(range);
+};
+
+RE.focusTitle = function() {
+    var range = document.createRange();
+    range.selectNodeContents(RE.title);
+    range.collapse(false);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    RE.title.focus();
+};
+
+RE.focusContent = function() {
+    //防止重复定位导致不能定位到指定位置
+    if (RE.editor == document.activeElement) {
+        return
+    }
+
+    if (RE.currentSelection != null) {
+        RE.restorerange();
+    }else {
+        RE.focusToEnd();
+    }
+};
+
+RE.blurFocus = function() {
+    RE.title.blur();
+    RE.editor.blur();
+};
+
+RE.focusToEnd = function() {
+    var range = document.createRange();
+    range.selectNodeContents(RE.editor);
+    range.collapse(false);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    RE.editor.focus();
+};
+
+
+/*
+    事件响应函数
+ */
+RE.handleTitleKeyDownEvent = function(e) {
+    if (e.keyCode == 13) {
+        e.preventDefault();
+    }
+};
+
+RE.handleTapEvent = function(e) {
+    //RE.editor != document.activeElement
+    RE.callback("contentAreaTapped");
+    
+    if (e.target.nodeName.toLowerCase() == 'img') {
+        e.preventDefault(); //否则会定位
+        
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        var range = document.createRange();
+        range.setStartAfter(e.target);
+        range.collapse(true);
+        selection.addRange(range);
+        RE.backuprange();
+    }
+};
+
+/*
+    外部调用函数
+ */
+
+//placeHolder 处理
+
+RE.setTitlePlaceholder = function(body) {
+    RE.title.setAttribute("placeholder", body);
+    RE.updateTitlePlaceholder();
+};
+
+RE.updateTitlePlaceholder = function() {
+    //输入后再删除最后还是会留个<br>
+    if (RE.checkTitleEmpty() == true) {
+        RE.title.classList.add("placeholder");
+    } else {
+        RE.title.classList.remove("placeholder");
+    }
+};
+
+RE.setContentPlaceholder = function(body) {
+    RE.editor.setAttribute("placeholder", body);
+    RE.updateContentPlaceholder();
+};
+
+RE.updateContentPlaceholder = function() {
+    // var nbsp = '\xa0';
+    // var text = RE.editor.innerText.replace(nbsp, '');
+    
+    //输入后再删除最后还是会留个<br>
+    if (RE.checkContentEmpty() == true) {
+        RE.editor.classList.add("placeholder");
+    } else {
+        RE.editor.classList.remove("placeholder");
+    }
+};
+
+//内容获取与设置
+RE.getTitle = function() {
+    var title = RE.title.innerHTML;
+    if (title.substring(0, 4) == "<br>") {
+        title = title.substring(4, title.length);
+    }
+    title = title.replace('&nbsp;', ' ');
+    title = title.replace('&nbsp', ' ');
+    return title;
+};
+
+RE.getTitleHtmlLength = function() {
+    var title = RE.title.innerHTML;
+    title = title.replace('&nbsp;', ' ');
+    title = title.replace('&nbsp', ' ');
+    return title.length;
+};
+
+RE.getContent = function() {
     var images = document.querySelectorAll("img.WebEditorNeedReplaceRemoteURL"), index;
     for (index = 0; index < images.length; ++index) {
         var image = images[index];
@@ -152,41 +371,170 @@ RE.getBodyHtml = function() {
     return body;
 };
 
-RE.getBodyHtmlLength = function() {
+RE.getContentLength = function() {
     var body = RE.editor.innerHTML;
     body = body.replace('&nbsp;', ' ');
     body = body.replace('&nbsp', ' ');
     return body.length;
 };
 
+RE.insertImage = function(url, classStr, alt) {
+    var img = document.createElement('img');
+    img.setAttribute("src", url);
+    img.setAttribute("class", classStr)
+    img.setAttribute("alt", alt);
+    img.onload = RE.updateHeight;
+    
+    RE.insertHTML(img.outerHTML);
+};
+
+RE.insertLocalImage = function(localUrl, remoteUrl, classStr, alt) {
+    var img = document.createElement('img');
+    img.setAttribute("src", localUrl);
+    img.setAttribute("remoteSrc", remoteUrl);
+    img.setAttribute("class", classStr + " WebEditorNeedReplaceRemoteURL");
+    img.setAttribute("alt", alt);
+    img.onload = RE.updateHeight;
+    
+    RE.insertHTML(img.outerHTML);
+};
+
+RE.handleContentAreaTapped = function(position) {//外部调用，点击在内容外，不会触发聚焦行为，为防止覆盖默认的点击定位光标行为，导致光标位置不准需要判断
+    if (RE.editor == document.activeElement) {
+        return
+    }
+    
+    var titleTop = RE.title.getBoundingClientRect().top;
+    if (position < titleTop + 28 + 11) {
+        return
+    }
+          
+    if (RE.checkContentEmpty() == true) {
+        RE.focusToEnd();
+    }else if (RE.editor.offsetHeight + 15 < position) { //pading算在内，但不包括margin
+        RE.focusToEnd();
+    }
+    RE.callback("contentAreaTapped");
+};
+
+//删除操作
+RE.backspace = function() {
+    var range = document.createRange();
+    range.setStart(RE.currentSelection.startContainer, RE.currentSelection.startOffset);
+    range.setEnd(RE.currentSelection.endContainer, RE.currentSelection.endOffset);
+    range.collapse(false);
+    
+    //alert("before add span stag " + range.startContainer.tagName + " so "+ range.startOffset + " etag " + range.endContainer.tagName+" eo "+range.endOffset + " c "+range.collapsed );
+    
+    var span = document.createElement('span');
+    range.insertNode(span);
+    var preNode = span.previousSibling;
+    var parentNode = span.parentNode;
+    
+    //alert("after add span preNode name" + preNode.nodeName.toLowerCase() + " stag " + range.startContainer.tagName + " so "+ range.startOffset + " etag " + range.endContainer.tagName+" eo "+range.endOffset + " c "+range.collapsed );
+
+    if (preNode.nodeName.toLowerCase() == 'img') {
+        
+        parentNode.removeChild(span);
+        var preNodePre = preNode.previousSibling;
+        if (preNodePre == null) {
+            if (parentNode.parentNode.tagName.toLowerCase() == "body") {
+                parentNode.removeChild(preNode);
+                RE.backSpaceReset();
+            }else {
+                parentNode.removeChild(preNode);
+                preNodePre = parentNode.parentNode.lastChild;
+                RE.backSpaceLocate(preNodePre);
+            }
+        }else {
+            parentNode.removeChild(preNode);
+            RE.backSpaceLocate(preNodePre);
+        }
+    
+    }else if (preNode.nodeName.toLowerCase() == '#text') {
+        
+        parentNode.removeChild(span);
+        var text = preNode.textContent;
+        //alert("text"+text);
+        preNode.textContent = text.slice(0, -1);
+        
+        if (preNode.textContent.length <= 0) {
+            var preNodePre = preNode.previousSibling;
+            if (preNodePre == null) {
+                if (parentNode.parentNode.tagName.toLowerCase() == "body") {
+                    parentNode.removeChild(preNode);
+                    RE.backSpaceReset();
+                }else {
+                    parentNode.removeChild(preNode);
+                    preNodePre = parentNode.parentNode.lastChild;
+                    RE.backSpaceLocate(preNodePre);
+                }
+            }else {
+                parentNode.removeChild(preNode);
+                RE.backSpaceLocate(preNodePre);
+            }
+            
+        }else {
+            RE.backSpaceLocate(preNode);
+        }
+    }
+};
+
+RE.backSpaceReset = function() {
+    var rangeBak = document.createRange();
+    rangeBak.selectNodeContents(RE.editor);
+    rangeBak.collapse(false);
+    RE.currentSelection = {
+        "startContainer": rangeBak.startContainer,
+        "startOffset": rangeBak.startOffset,
+        "endContainer": rangeBak.endContainer,
+        "endOffset": rangeBak.endOffset
+    };
+};
+
+RE.backSpaceLocate = function(destNode) {
+    var rangeBak = document.createRange();
+    rangeBak.setStartAfter(destNode);
+    rangeBak.collapse(true);
+    
+    //alert("restore after backspace" + " stag " + rangeBak.startContainer.tagName + " so "+ rangeBak.startOffset + " etag " + rangeBak.endContainer.tagName+" eo "+rangeBak.endOffset + " c "+ rangeBak.collapsed );
+    
+    RE.currentSelection = {
+        "startContainer": rangeBak.startContainer,
+        "startOffset": rangeBak.startOffset,
+        "endContainer": rangeBak.endContainer,
+        "endOffset": rangeBak.endOffset
+    };
+};
+
+
+//------下面时暂时没有用到的函数------
+RE.setBlockquote = function() {
+    document.execCommand('formatBlock', false, '<blockquote>');
+};
+
+RE.insertLink = function(url, title) {
+    var el = document.createElement('a');
+    el.setAttribute("href", url);
+    el.text = title;
+    RE.insertHTML(el.outerHTML);
+};
+
+RE.setContentHtml = function(contents) {
+    var tempWrapper = document.createElement('div');
+    tempWrapper.innerHTML = contents;
+    var images = tempWrapper.querySelectorAll("img");
+    
+    for (var i = 0; i < images.length; i++) {
+        images[i].onload = RE.updateHeight;
+    }
+    
+    RE.editor.innerHTML = tempWrapper.innerHTML;
+    RE.updateContentPlaceholder();
+};
+
 RE.getText = function() {
     return RE.editor.innerText;
-};
-
-RE.setPlaceholderText = function(body) {
-    RE.editor.setAttribute("placeholder", body);
-    RE.updatePlaceholder();
-};
-
-RE.updatePlaceholder = function() {
-   // var nbsp = '\xa0';
-   // var text = RE.editor.innerText.replace(nbsp, '');
-
-    //输入后再删除最后还是会留个<br>
-    if (RE.checkContentEmpty() == true) {
-        RE.editor.classList.add("placeholder");
-    } else {
-        RE.editor.classList.remove("placeholder");
-    }
-};
-
-RE.checkContentEmpty = function() {
-    var html = RE.editor.innerHTML;
-    var ret = false;
-    if ((html.length == 0 || html == "<br>") && RE.quote.innerHTML.length == 0) {
-        ret = true;
-    }
-    return ret;
 };
 
 RE.removeFormat = function() {
@@ -283,317 +631,5 @@ RE.setJustifyRight = function() {
     document.execCommand('justifyRight', false, null);
 };
 
-RE.insertImage = function(url, classStr, alt) {
-    var img = document.createElement('img');
-    img.setAttribute("src", url);
-    img.setAttribute("class", classStr)
-    img.setAttribute("alt", alt);
-    img.onload = RE.updateHeight;
-
-    RE.insertHTML(img.outerHTML);
-    RE.callback("input");
-};
-
-RE.insertLocalImage = function(localUrl, remoteUrl, classStr, alt) {
-    var img = document.createElement('img');
-    img.setAttribute("src", localUrl);
-    img.setAttribute("remoteSrc", remoteUrl);
-    img.setAttribute("class", classStr + " WebEditorNeedReplaceRemoteURL");
-    img.setAttribute("alt", alt);
-    img.onload = RE.updateHeight;
-
-    RE.insertHTML(img.outerHTML);
-    RE.callback("input");
-};
-
-RE.setBlockquote = function() {
-    document.execCommand('formatBlock', false, '<blockquote>');
-};
-
-RE.insertHTML = function(html) {
-    RE.restorerange();
-    document.execCommand('insertHTML', false, html);
-};
-
-RE.insertLink = function(url, title) {
-    RE.restorerange();
-    var sel = document.getSelection();
-    
-    if (sel.toString().length != 0) {
-        if (sel.rangeCount) {
-
-            var el = document.createElement("a");
-            el.setAttribute("href", url);
-            el.setAttribute("title", title);
-
-            var range = sel.getRangeAt(0).cloneRange();
-            range.surroundContents(el);
-            sel.removeAllRanges();
-            sel.addRange(range);
-        }
-    }else {
-        document.execCommand("insertHTML",false,"<a href='"+url+"'>"+title+"</a>");
-    }
-    RE.callback("input");
-};
-
-RE.prepareInsert = function() {
-    RE.backuprange();
-};
-
-RE.backuprange = function() {
-    var selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-        var range = selection.getRangeAt(0);
-        RE.currentSelection = {
-            "startContainer": range.startContainer,
-            "startOffset": range.startOffset,
-            "endContainer": range.endContainer,
-            "endOffset": range.endOffset
-        };
-    }
-};
-
-//backspace-----
-RE.backspace = function() {
-    var range = document.createRange();
-    range.setStart(RE.currentSelection.startContainer, RE.currentSelection.startOffset);
-    range.setEnd(RE.currentSelection.endContainer, RE.currentSelection.endOffset);
-    range.collapse(false);
-
-    var span = document.createElement('span');
-    range.insertNode(span);
-    var preNode = span.previousSibling;
-    var parentNode = span.parentNode;
-
-    if (preNode.nodeName.toLowerCase() == 'img') {
-
-        parentNode.removeChild(span);
-        var preNodePre = preNode.previousSibling;
-        if (preNodePre == null) {
-            if (parentNode.parentNode.tagName.toLowerCase() == "body") {
-                parentNode.removeChild(preNode);
-                RE.backSpaceReset();
-            }else {
-                parentNode.removeChild(preNode);
-                preNodePre = parentNode.parentNode.lastChild;
-                RE.backSpaceLocate(preNodePre);
-            }
-        }else {
-            parentNode.removeChild(preNode);
-            RE.backSpaceLocate(preNodePre);
-        }
-
-    }else if (preNode.nodeName.toLowerCase() == '#text') {
-
-        parentNode.removeChild(span);
-        var text = preNode.textContent;
-        preNode.textContent = text.slice(0, -1);
-
-        if (preNode.textContent.length <= 0) {
-            var preNodePre = preNode.previousSibling;
-            if (preNodePre == null) {
-                if (parentNode.parentNode.tagName.toLowerCase() == "body") {
-                    parentNode.removeChild(preNode);
-                    RE.backSpaceReset();
-                }else {
-                    parentNode.removeChild(preNode);
-                    preNodePre = parentNode.parentNode.lastChild;
-                    RE.backSpaceLocate(preNodePre);
-                }
-            }else {
-                parentNode.removeChild(preNode);
-                RE.backSpaceLocate(preNodePre);
-            }
-
-        }else {
-            RE.backSpaceLocate(preNode);
-        }
-    }
-};
-
-RE.backSpaceReset = function() {
-    var rangeBak = document.createRange();
-    rangeBak.selectNodeContents(RE.editor);
-    rangeBak.collapse(false);
-    RE.currentSelection = {
-        "startContainer": rangeBak.startContainer,
-        "startOffset": rangeBak.startOffset,
-        "endContainer": rangeBak.endContainer,
-        "endOffset": rangeBak.endOffset
-    };
-};
-
-RE.backSpaceLocate = function(destNode) {
-    var rangeBak = document.createRange();
-    rangeBak.setStartAfter(destNode);
-    rangeBak.collapse(true);
-    
-    RE.currentSelection = {
-        "startContainer": rangeBak.startContainer,
-        "startOffset": rangeBak.startOffset,
-        "endContainer": rangeBak.endContainer,
-        "endOffset": rangeBak.endOffset
-    };
-};
 
 
-RE.handleTapEvent = function(e) {
-    if (RE.editor != document.activeElement) {
-        RE.callback("handleTapEvent");
-    }
-
-    if (e.target.nodeName.toLowerCase() == 'img') {
-//        RE.focusToEnd();
-        e.preventDefault(); //否则会定位
-
-        var selection = window.getSelection();
-        selection.removeAllRanges();
-        var range = document.createRange();
-        range.setStartAfter(e.target);
-        range.collapse(true);
-        selection.addRange(range);
-        RE.backuprange();
-    }
-};
-
-RE.handleViewTapped = function(position) {//外部调用，点击在内容外，不会触发聚焦行为，为防止覆盖默认的点击定位光标行为，导致光标位置不准需要判断
-    if (RE.checkContentEmpty() == true) {
-        RE.focusToEnd();
-    }else if (RE.editor.offsetHeight + 15 < position) { //pading算在内，但不包括margin
-        RE.focusToEnd();
-    }
-};
-
-RE.addRangeToSelection = function(selection, range) {
-    if (selection) {
-        selection.removeAllRanges();
-        selection.addRange(range);
-    }
-};
-
-// Programatically select a DOM element
-RE.selectElementContents = function(el) {
-    var range = document.createRange();
-    range.selectNodeContents(el);
-    var sel = window.getSelection();
-    // this.createSelectionFromRange sel, range
-    RE.addRangeToSelection(sel, range);
-};
-
-RE.restorerange = function() {
-    var selection = window.getSelection();
-    selection.removeAllRanges();
-    var range = document.createRange();
-    range.setStart(RE.currentSelection.startContainer, RE.currentSelection.startOffset);
-    range.setEnd(RE.currentSelection.endContainer, RE.currentSelection.endOffset);
-    selection.addRange(range);
-};
-
-RE.focus = function() {
-    //防止重复定位导致不能定位到指定位置
-    if (RE.editor == document.activeElement) {
-        return
-    }
-
-    if (RE.currentSelection != null) {
-        RE.restorerange();
-    }else {
-        RE.focusToEnd();
-    }
-};
-
-RE.blurFocus = function() {
-    RE.editor.blur();
-};
-
-RE.focusToEnd = function() {
-    var range = document.createRange();
-    range.selectNodeContents(RE.editor);
-    range.collapse(false);
-    var selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    RE.editor.focus();
-};
-
-/**
- Recursively search element ancestors to find a element nodeName e.g. A
- **/
-var _findNodeByNameInContainer = function(element, nodeName, rootElementId) {
-    if (element.nodeName == nodeName) {
-        return element;
-    } else {
-        if (element.id == rootElementId) {
-            return null;
-        }
-        _findNodeByNameInContainer(element.parentElement, nodeName, rootElementId);
-    }
-};
-
-var isAnchorNode = function(node) {
-    return ("A" == node.nodeName);
-};
-
-RE.getAnchorTagsInNode = function(node) {
-    var links = [];
-
-    while (node.nextSibling != null && node.nextSibling != undefined) {
-        node = node.nextSibling;
-        if (isAnchorNode(node)) {
-            links.push(node.getAttribute('href'));
-        }
-    }
-    return links;
-};
-
-RE.countAnchorTagsInNode = function(node) {
-    return RE.getAnchorTagsInNode(node).length;
-};
-
-/**
- * If the current selection's parent is an anchor tag, get the href.
- * @returns {string}
- */
-RE.getSelectedHref = function() {
-    var href, sel;
-    href = '';
-    sel = window.getSelection();
-    if (!RE.rangeOrCaretSelectionExists()) {
-        return null;
-    }
-
-    var tags = RE.getAnchorTagsInNode(sel.anchorNode);
-    //if more than one link is there, return null
-    if (tags.length > 1) {
-        return null;
-    } else if (tags.length == 1) {
-        href = tags[0];
-    } else {
-        var node = _findNodeByNameInContainer(sel.anchorNode.parentElement, 'A', 'editor');
-        href = node.href;
-    }
-
-    return href ? href : null;
-};
-
-RE.closerParentNode = function() {
-
-    var parentNode = null;
-    var selection = window.getSelection();
-    var range = selection.getRangeAt(0).cloneRange();
-
-    var currentNode = range.commonAncestorContainer;
-
-    while (currentNode) {
-        if (currentNode.nodeType == document.ELEMENT_NODE) {
-            parentNode = currentNode;
-
-            break;
-        }
-
-        currentNode = currentNode.parentElement;
-    }
-
-    return parentNode;
-};

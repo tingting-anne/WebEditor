@@ -5,10 +5,16 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <link rel="stylesheet" type="text/css" href="rich_editor.css">
 </head>
-<body style='font-family: HelveticaNeue'>
-    <!--设置不可编辑，但是如果在可编辑块中，可以整天删除，所以单独提取-->
-    <div contenteditable="false" id="field_quote_content" class="editor_field">%@</div>
+<body>
+    <!--标题-->
+    <div contenteditable="true" placeholder="" id="field_title" class="editor_field placeholder %@">%@</div>
+    
+    <!--分割线-->
+    <div contenteditable="false" class="separatorDiv %@"><hr /></div>
+    
+    <!--正文-->
     <div contenteditable="true" placeholder="" id="field_content" class="editor_field placeholder">%@</div>
+    
 <script type="text/javascript" src="rich_editor.js"></script>
 </body>
 </html>

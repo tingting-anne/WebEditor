@@ -11,16 +11,11 @@ import SnapKit
 
 public class WebEditorView: UIView {
     /// placeholder
-    public var placeholderBody = "正文"
+    var placeholderTitle = "讨论标题"
+    var placeholderBody = "讨论正文"
     
-    /// 初始打开时编辑器是否 focus
-    public var loadWithFocus = true
-
-    /// 编辑器 focus 状态变化回调，focus 表示当前是否处于 focus 状态
-    public var focusStateCallback: ((focus: Bool) -> Void)?
     public private(set) var webView: UIWebView
-    
-    private var lastScrollPos: CGFloat? //上次需要移动的位置
+    fileprivate var showTitle = true
     
     override init(frame: CGRect) {
         webView = UIWebView()
@@ -39,20 +34,20 @@ public class WebEditorView: UIView {
         webView.delegate = self
         webView.keyboardDisplayRequiresUserAction = false
         webView.scalesPageToFit = true
-        webView.autoresizingMask = [.FlexibleWidth, .FlexibleHeight]
-        webView.dataDetectorTypes = .None
+        webView.autoresizingMask = [.flexibleHeight]
+        webView.dataDetectorTypes = UIDataDetectorTypes()
         webView.scrollView.bounces = false
         webView.scrollView.clipsToBounds = true
         
         //解决webView最后显示一条黑色线的问题
-        webView.opaque = false
-        webView.backgroundColor = UIColor.clearColor()
+        webView.isOpaque = false
+        webView.backgroundColor = UIColor.clear
         
         //去掉默认扩展
-        webView.setHackinputAccessoryView(nil)
+        webView.setHackinputAccessoryView(view: nil)
         
-        self.addSubview(webView)
-        webView.snp_makeConstraints(){make in
+        addSubview(webView)
+        webView.snp.makeConstraints(){make in
             make.edges.equalTo(self)
         }
         
@@ -64,33 +59,45 @@ public class WebEditorView: UIView {
     /**
         加载编辑器
      
-        - parameter quote: 引用数据
-        - parameter body: 正文数据
+        - parameter showTitle: 是否显示标题
+        - parameter title: 标题
+        - parameter body: 正文
     */
-    public func loadWebViewData(quote: String?, body: String?) {
-        guard let path = NSBundle(forClass: WebEditorView.self).pathForResource("rich_editor", ofType: "html") else {
+    public func loadWebViewData(showTitle: Bool, title: String?, body: String?) {
+        guard let path = Bundle(for: WebEditorView.self).path(forResource: "rich_editor", ofType: "html") else {
             return
         }
-        let templateURL = NSURL(fileURLWithPath: path)
-        let htmlTemp = try! String(contentsOfURL: templateURL, encoding: NSUTF8StringEncoding)
-        let data = String(format: htmlTemp, quote ?? "", body ?? "")
+        
+        let templateURL = URL(fileURLWithPath: path)
+        let htmlTemp = try! String(contentsOf: templateURL, encoding: .utf8)
+        
+        let displayTitle = showTitle ? "" : "no"
+        let data = String(format: htmlTemp,
+            displayTitle, title ?? "",    //标题
+            displayTitle,                 //分割线
+            body ?? "")                   //正文
         webView.loadHTMLString(data, baseURL: templateURL)
+        self.showTitle = showTitle
     }
 }
 
 // MARK: - UIWebViewDelegate
 
 extension WebEditorView: UIWebViewDelegate {
-    public func webView(webView: UIWebView, shouldStartLoadWithRequest request: NSURLRequest, navigationType: UIWebViewNavigationType) -> Bool {
+    public func webView(_ webView: UIWebView, shouldStartLoadWith request: URLRequest, navigationType: UIWebViewNavigationType) -> Bool {
         
+        // Handle pre-defined editor actions
         let callbackPrefix = "re-callback://"
-        if request.URL?.absoluteString.hasPrefix(callbackPrefix) == true {
+        if request.url?.absoluteString.hasPrefix(callbackPrefix) == true {
+            
+            // When we get a callback, we need to fetch the command queue to run the commands
+            // It comes in as a JSON array of commands that we need to parse
             let commands = runJS("RE.getCommandQueue();")
-            if let data = (commands as NSString).dataUsingEncoding(NSUTF8StringEncoding) {
+            if let data = (commands as NSString).data(using: String.Encoding.utf8.rawValue) {
                 
                 let jsonCommands: [String]?
                 do {
-                    jsonCommands = try NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions(rawValue: 0)) as? [String]
+                    jsonCommands = try JSONSerialization.jsonObject(with: data, options: JSONSerialization.ReadingOptions(rawValue: 0)) as? [String]
                 } catch {
                     jsonCommands = nil
                     NSLog("Failed to parse JSON Commands")
@@ -105,112 +112,204 @@ extension WebEditorView: UIWebViewDelegate {
             
             return false
         }
-
-        if navigationType == .LinkClicked {
+        
+        if navigationType == .linkClicked {
             return false
         }
         return true
     }
     
-    public func webViewDidFinishLoad(webView: UIWebView) {
-        setPlaceholderText()
-        if loadWithFocus {
-            focus()
+    public func webViewDidFinishLoad(_ webView: UIWebView) {
+        setPlaceholder()
+        if showTitle {
+            focusTitle()
+        }else {
+            focusContent()
+        }
+        
+        if showTitle || checkContentEmpty() {
+            webView.scrollView.contentOffset.y = 0
         }
     }
     
-    private func performCommand(method: String) {
-        if method.hasPrefix("scrollTo=") {
-            let rangeOfPos = method.startIndex.advancedBy(("scrollTo=" as NSString).length)..<method.endIndex
-            let pos = CGFloat(Int(method[rangeOfPos])!)
-            if pos > (webView.scrollView.contentOffset.y + self.frame.height - 15) {
-                let newPos = pos - self.frame.height + 15 + 22
-                if lastScrollPos == nil || lastScrollPos != newPos { //防止输入跳动
-                    lastScrollPos = newPos
-                    webView.scrollView.contentOffset.y = newPos
-                }
+    fileprivate func performCommand(_ method: String) {
+        enum MethodType: String {
+            case inputContent = "inputContent"
+            case inputTitle = "inputTitle"
+            case focusTitle = "focusTitle"
+            case blurFocusTitle = "blurFocusTitle"
+            case contentAreaTapped = "contentAreaTapped"
+        }
+        
+        guard let methodType = MethodType(rawValue: method) else {
+            return
+        }
+        
+        switch methodType {
+        case .inputContent:
+            scrollCaretToVisible()
+        default:
+            break
+        }
+    }
+    
+    fileprivate func getRelativeCaretYPosition() -> [Int]? {
+        let string = runJS("RE.getRelativeCaretYPosition();")
+        let resultArray = string.components(separatedBy: "+")
+        var caretInfo = [Int]()
+        for value in resultArray {
+            if let intValue = Int(value) {
+                caretInfo.append(intValue)
             }
-        }else if method.hasPrefix("handleTapEvent") {
-            focusStateCallback?(focus: true)
+        }
+        return caretInfo.count == 2 ? caretInfo : nil
+    }
+    
+    fileprivate func scrollCaretToVisible() {
+        guard let caretPosition = getRelativeCaretYPosition() else {
+            return
+        }
+        
+        let scrollView = self.webView.scrollView
+        let visiblePosition = CGFloat(caretPosition[0])
+        let cursorHeight = CGFloat(caretPosition[1])
+        var offset: CGPoint?
+        
+        if visiblePosition + cursorHeight > scrollView.bounds.size.height {
+            // Visible caret position goes further than our bounds
+            offset = CGPoint(x: 0, y: (visiblePosition + cursorHeight) - scrollView.bounds.height + scrollView.contentOffset.y)
+            
+        } else if visiblePosition < 0 {
+            // Visible caret position is above what is currently visible
+            var amount = scrollView.contentOffset.y + visiblePosition
+            amount = amount < 0 ? 0 : amount
+            offset = CGPoint(x: scrollView.contentOffset.x, y: amount)
+            
+        }
+        
+        if let offset = offset {
+            scrollView.setContentOffset(offset, animated: true)
         }
     }
-}
-
-// MARK: UIGestureRecognizerDelegate
-extension WebEditorView: UIGestureRecognizerDelegate {
-
-    public func gestureRecognizer(gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWithGestureRecognizer otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        return true
-    }
     
-    func viewWasTapped(sender: UITapGestureRecognizer) {
-        let tapPoint = sender.locationInView(self)
-        handleViewTapped(tapPoint.y)
-    }
-}
-
-extension WebEditorView {
-    public func getBody() -> String {
-        return runJS("RE.getBodyHtml();")
-    }
-    
-    public func checkContentEmpty() -> Bool {
-        let ret = runJS("RE.checkContentEmpty();")
-        return ret != "true"
-    }
-    
-    public func getBodyHtmlLength() -> Int {
-        let ret = runJS("RE.getBodyHtmlLength();")
-        return Int(ret) ?? 0
-    }
-    
-    func handleViewTapped(position: CGFloat) {
-        runJS("RE.handleViewTapped('\(position)');")
-    }
-    
-    func setPlaceholderText() {
-        runJS("RE.setPlaceholderText('\(escape(placeholderBody))');")
-    }
-    
-    func setContentHeight(contentHeight: CGFloat) {
-        runJS("RE.contentHeight = '\(contentHeight)';")
-    }
-    
-    func runJS(js: String) -> String {
-        let string = webView.stringByEvaluatingJavaScriptFromString(js) ?? ""
+    @discardableResult
+    func runJS(_ js: String) -> String {
+        let string = webView.stringByEvaluatingJavaScript(from: js) ?? ""
         return string
     }
     
-    private func escape(string: String) -> String {
+    fileprivate func escape(_ string: String) -> String {
         let unicode = string.unicodeScalars
         var newString = ""
-        for i in unicode.startIndex ..< unicode.endIndex {
-            let char = unicode[i]
+        for char in unicode {
             if char.value < 9 || (char.value > 9 && char.value < 32) // < 32 == special characters in ASCII, 9 == horizontal tab in ASCII
                 || char.value == 39 { // 39 == ' in ASCII
-                let escaped = char.escape(asASCII: true)
-                newString.appendContentsOf(escaped)
+                let escaped = char.escaped(asASCII: true)
+                newString.append(escaped)
             } else {
-                newString.append(char)
+                newString.append(String(char))
             }
         }
         return newString
     }
 }
 
+// MARK: UIGestureRecognizerDelegate
+extension WebEditorView: UIGestureRecognizerDelegate {
+    
+    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        return true
+    }
+    
+    func viewWasTapped(_ sender: UITapGestureRecognizer) {
+        let tapPoint = sender.location(in: self)
+        handleContentAreaTapped(tapPoint.y)
+    }
+}
+
 extension WebEditorView {
-    public func focus() {
-        runJS("RE.focus();")
-        focusStateCallback?(focus: true)
+    
+    func handleContentAreaTapped(_ position: CGFloat) {
+        runJS("RE.handleContentAreaTapped('\(position)');")
+    }
+    
+    public func getTitle() -> String {
+        return runJS("RE.getTitle();")
+    }
+    
+    public func checkTitleEmpty() -> Bool {
+        let ret = runJS("RE.checkTitleEmpty();")
+        return ret == "true"
+    }
+    
+    public func getTitleHtmlLength() -> Int {
+        let ret = runJS("RE.getTitleHtmlLength();")
+        return Int(ret) ?? 0
+    }
+    
+    public func getContent() -> String {
+        return runJS("RE.getContent();")
+    }
+    
+    public func checkContentEmpty() -> Bool {
+        let ret = runJS("RE.checkContentEmpty();")
+        return ret == "true"
+    }
+    
+    public func getContentLength() -> Int {
+        let ret = runJS("RE.getContentLength();")
+        return Int(ret) ?? 0 //在webView还没有loadHTML时，stringByEvaluatingJavaScriptFromString 返回""
+    }
+    
+    public func setPlaceholder() {
+        runJS("RE.setTitlePlaceholder('\(escape(placeholderTitle))');")
+        runJS("RE.setContentPlaceholder('\(escape(placeholderBody))');")
+    }
+    
+    public func focusTitle() {
+        runJS("RE.focusTitle();")
+    }
+    
+    public func focusContent() {
+        runJS("RE.focusContent();")
     }
     
     public func blurFocus() {
         runJS("RE.blurFocus();")
-        focusStateCallback?(focus: false)
     }
     
     public func backspace() {
         runJS("RE.backspace();")
+    }
+    
+    public func insertLink(href: String, title: String) {
+        runJS("RE.prepareInsert();")
+        runJS("RE.insertLink('\(escape(href))', '\(escape(title))');")
+    }
+    
+    /**
+     插入图片
+     
+     - parameter url: 图片地址， 可以是本地或者远端的地址。
+     - parameter classStr: img 标签中的 class
+     - parameter alt: img 标签中的 alt
+     */
+    public func insertImage(url: String, classStr: String, alt: String) {
+        runJS("RE.prepareInsert();")
+        runJS("RE.insertImage('\(escape(url))', '\(escape(classStr))', '\(escape(alt))');")
+    }
+    
+    /**
+     可以插入本地图片，避免去下载。在 getBody 时，会把 img 标签的 src 替换成 remoteUrl。可用于插入表情等客户端和服务端有固定链接对应的情况。
+     
+     - parameter localUrl: 本地地址
+     - parameter remoteUrl: 远端地址
+     - parameter classStr: img 标签中的 class
+     - parameter alt: img 标签中的 alt
+     */
+    public func insertLocalImage(localUrl: String, remoteUrl: String, classStr: String, alt: String) {
+        runJS("RE.prepareInsert();")
+        runJS("RE.insertLocalImage('\(escape(localUrl))', '\(escape(remoteUrl))','\(escape(classStr))', '\(escape(alt))');")
     }
     
     public func removeFormat() {
@@ -288,35 +387,5 @@ extension WebEditorView {
     
     public func alignRight() {
         runJS("RE.setJustifyRight();")
-    }
-    
-    public func insertLink(href: String, title: String) {
-        runJS("RE.prepareInsert();")
-        runJS("RE.insertLink('\(escape(href))', '\(escape(title))');")
-    }
-    
-    /**
-        插入图片
-        
-        - parameter url: 图片地址， 可以是本地或者远端的地址。
-        - parameter classStr: img 标签中的 class
-        - parameter alt: img 标签中的 alt
-    */
-    public func insertImage(url: String, classStr: String, alt: String) {
-        runJS("RE.prepareInsert();")
-        runJS("RE.insertImage('\(escape(url))', '\(escape(classStr))', '\(escape(alt))');")
-    }
-    
-    /**
-        可以插入本地图片，避免去下载。在 getBody 时，会把 img 标签的 src 替换成 remoteUrl。可用于插入表情等客户端和服务端有固定链接对应的情况。
-     
-        - parameter localUrl: 本地地址
-        - parameter remoteUrl: 远端地址
-        - parameter classStr: img 标签中的 class
-        - parameter alt: img 标签中的 alt
-    */
-    public func insertLocalImage(localUrl: String, remoteUrl: String, classStr: String, alt: String) {
-        runJS("RE.prepareInsert();")
-        runJS("RE.insertLocalImage('\(escape(localUrl))', '\(escape(remoteUrl))','\(escape(classStr))', '\(escape(alt))');")
     }
 }

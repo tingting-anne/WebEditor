@@ -21,10 +21,10 @@ class TextResultViewController: UIViewController {
     private let textView = UITextView()
     
     override func viewDidLoad() {
-        textView.editable = false
-        textView.font = UIFont.systemFontOfSize(14)
+        textView.isEditable = false
+        textView.font = UIFont.systemFont(ofSize: 14)
         view.addSubview(textView)
-        textView.snp_makeConstraints() {make in
+        textView.snp.makeConstraints() {make in
             make.edges.equalTo(view)
         }
     }

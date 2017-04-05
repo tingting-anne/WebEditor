@@ -33,8 +33,18 @@ public class WebEditorToolBar: UIView {
         containerView.bounces = false
         containerView.showsHorizontalScrollIndicator = false
         self.addSubview(containerView)
-        containerView.snp_makeConstraints() {make in
+        containerView.snp.makeConstraints() {make in
             make.edges.equalTo(self)
+        }
+        
+        let lineView = UIView()
+        lineView.backgroundColor = UIColor(red: 230/255.0, green: 230/255.0, blue: 230/255.0, alpha: 1)
+        self.addSubview(lineView)
+        lineView.snp.makeConstraints() {make in
+            make.height.equalTo(0.5)
+            make.leading.equalTo(self)
+            make.trailing.equalTo(self)
+            make.top.equalTo(self)
         }
     }
     
@@ -51,7 +61,7 @@ public class WebEditorToolBar: UIView {
         var leadingOffset = leading
         for value in items {
             containerView.addSubview(value)
-            value.snp_makeConstraints() {make in
+            value.snp.makeConstraints() {make in
                 make.leading.equalTo(containerView).offset(leadingOffset)
                 make.size.equalTo(value.itemSize)
                 make.centerY.equalTo(containerView)
